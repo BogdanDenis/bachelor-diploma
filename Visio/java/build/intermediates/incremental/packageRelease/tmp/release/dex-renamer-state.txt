@@ -1,0 +1,4 @@
+#Sat Apr 27 20:24:29 EEST 2019
+base.0=/home/dbohdan/Documents/Uni/bachelor-diploma/Visio/java/build/intermediates/dex/release/mergeDexRelease/out
+path.0=classes.dex
+renamed.0=classes.dex

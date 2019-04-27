@@ -1,0 +1,7 @@
+#Internal package file, do not edit.
+#Sat Apr 27 20:24:29 EEST 2019
+0.baseType=DIRECTORY
+0.base=/home/dbohdan/Documents/Uni/bachelor-diploma/Visio/java/build/intermediates/dex/release/mergeDexRelease/out
+0.path=classes.dex
+0.set=DEX
+count=1

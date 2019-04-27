@@ -16,7 +16,9 @@ import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import org.opencv.android.OpenCVLoader;
 import org.w3c.dom.Text;
 
 import java.io.BufferedReader;
@@ -74,6 +76,12 @@ public class MainActivity extends AppCompatActivity {
             });
         } catch (IOException e) {
             e.printStackTrace();
+        }
+
+        if (OpenCVLoader.initDebug()) {
+            Toast.makeText(this, "openCv successfully loaded", Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(this, "openCv cannot be loaded", Toast.LENGTH_SHORT).show();
         }
     }
 

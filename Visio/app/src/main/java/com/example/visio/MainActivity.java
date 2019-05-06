@@ -7,9 +7,11 @@ import android.content.res.AssetFileDescriptor;
 import android.graphics.Bitmap;
 import android.hardware.Camera;
 import android.os.Build;
+import android.speech.tts.TextToSpeech;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.TextPaint;
+import android.util.Pair;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.Window;
@@ -28,9 +30,12 @@ import org.opencv.android.Utils;
 import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
+import org.opencv.core.Point;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
+import org.opencv.engine.OpenCVEngineInterface;
 import org.opencv.imgproc.Imgproc;
+import org.opencv.photo.Photo;
 import org.w3c.dom.Text;
 
 import java.io.BufferedReader;
@@ -43,6 +48,7 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.PriorityQueue;
 
@@ -52,6 +58,8 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     private Classificator classificator;
     private JavaCameraView javaCameraView;
     private Mat mRgba;
+    private String lastClass = "";
+    private TextToSpeech textToSpeech;
     private Timestamp lastRecognitionTime = new Timestamp(new Date().getTime());
     private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
         @Override
@@ -96,6 +104,14 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         } catch (IOException e) {
             e.printStackTrace();
         }
+
+        this.textToSpeech = new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener() {
+            @Override
+            public void onInit(int status) {
+
+            }
+        });
+        this.textToSpeech.setLanguage(Locale.UK);
     }
 
     @Override
@@ -143,6 +159,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     public Mat onCameraFrame(Mat frame) {
         mRgba.release();
         mRgba = frame;
+        final Activity that = this;
 
         if (canRunRecognition()) {
             runOnUiThread(new Runnable() {
@@ -152,9 +169,14 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
                     Utils.matToBitmap(mRgba, bitmap);
 
-                    String res = classificator.classify(bitmap);
+                    Pair<String, String> res = classificator.classify(bitmap);
+
                     TextView textView = (TextView) findViewById(R.id.textView);
-                    textView.setText(res);
+                    textView.setText(res.first + " " + res.second);
+                    if (!(((MainActivity) that).lastClass.equals(res.first))) {
+                        ((MainActivity) that).textToSpeech.speak(res.first, TextToSpeech.QUEUE_FLUSH, null);
+                    }
+                    ((MainActivity) that).lastClass = res.first;
                 }
             });
 

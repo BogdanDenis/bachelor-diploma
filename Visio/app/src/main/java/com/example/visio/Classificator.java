@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.content.res.AssetFileDescriptor;
 import android.graphics.Bitmap;
 import android.graphics.Matrix;
+import android.util.Pair;
 
 import org.tensorflow.lite.Interpreter;
 
@@ -65,7 +66,7 @@ public class Classificator {
         labelProbArray = new float[1][labelList.size()];
     }
 
-    public String classify(Bitmap bitmap) {
+    public Pair<String, String> classify(Bitmap bitmap) {
         topLabels = new String[RESULTS_TO_SHOW];
         topConfidence = new String[RESULTS_TO_SHOW];
 
@@ -93,7 +94,7 @@ public class Classificator {
             topConfidence[i] = String.format("%.0f%%", label.getValue() * 100);
         }
 
-        return topLabels[2];
+        return new Pair<>(topLabels[2], topConfidence[2]);
     }
 
     private Bitmap getResizedBitmap(Bitmap bitmap, int newWidth, int newHeight) {

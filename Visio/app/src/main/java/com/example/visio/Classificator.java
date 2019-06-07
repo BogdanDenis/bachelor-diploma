@@ -1,54 +1,31 @@
 package com.example.visio;
 
-import android.content.Intent;
-import android.content.res.AssetFileDescriptor;
 import android.graphics.Bitmap;
 import android.graphics.Matrix;
-import android.util.Pair;
+import android.graphics.RectF;
 
 import org.tensorflow.lite.Interpreter;
 
-import java.io.IOException;
+import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.MappedByteBuffer;
-import java.util.AbstractMap;
-import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.PriorityQueue;
 
 public class Classificator {
-    private static final int RESULTS_TO_SHOW = 3;
-    private static final int IMAGE_MEAN = 128;
-    private static final float IMAGE_STD = 128.0f;
-
     private final Interpreter.Options tfliteOptions = new Interpreter.Options();
     private Interpreter tflite;
 
     private List<String> labelList;
-    private ByteBuffer imgData = null;
+    private ByteBuffer imgData;
 
-    private float[][] labelProbArray = null;
-    private String[] topLabels = null;
-    private String[] topConfidence = null;
-
-    private int DIM_IMG_SIZE_X = 224;
-    private int DIM_IMG_SIZE_Y = 224;
+    private int DIM_IMG_SIZE_X = 300;
+    private int DIM_IMG_SIZE_Y = 300;
     private int DIM_PIXEL_SIZE = 3;
 
     private int[] intValues;
-
-    private PriorityQueue<Map.Entry<String, Float>> sortedLabels =
-            new PriorityQueue<>(
-                    RESULTS_TO_SHOW,
-                    new Comparator<Map.Entry<String, Float>>() {
-                        @Override
-                        public int compare(Map.Entry<String, Float> o1, Map.Entry<String, Float> o2) {
-                            return (o1.getValue()).compareTo(o2.getValue());
-                        }
-                    }
-            );
 
     Classificator(MappedByteBuffer model, List<String> labels) {
         intValues = new int[DIM_IMG_SIZE_X * DIM_IMG_SIZE_Y * DIM_PIXEL_SIZE];
@@ -60,41 +37,57 @@ public class Classificator {
             e.printStackTrace();
         }
 
-        imgData = ByteBuffer.allocateDirect(4 * DIM_IMG_SIZE_Y * DIM_IMG_SIZE_X * DIM_PIXEL_SIZE);
+        imgData = ByteBuffer.allocateDirect(1 * DIM_IMG_SIZE_Y * DIM_IMG_SIZE_X * DIM_PIXEL_SIZE);
         imgData.order(ByteOrder.nativeOrder());
 
-        labelProbArray = new float[1][labelList.size()];
     }
 
-    public Pair<String, String> classify(Bitmap bitmap) {
-        topLabels = new String[RESULTS_TO_SHOW];
-        topConfidence = new String[RESULTS_TO_SHOW];
-
+    public Result classify(Bitmap bitmap) {
         Bitmap resized = getResizedBitmap(bitmap, DIM_IMG_SIZE_X, DIM_IMG_SIZE_Y);
 
         convertBitmapToByteBuffer(resized);
 
-        tflite.run(imgData, labelProbArray);
+        int NUM_DETECTIONS = 10;
 
-        for (int i = 0; i < labelList.size(); i++) {
-            sortedLabels.add(
-                    new AbstractMap.SimpleEntry<>(labelList.get(i), (labelProbArray[0][i]))
-            );
+        float[][][] outputLocations = new float[1][NUM_DETECTIONS][4];
+        float[][] outputClasses = new float[1][NUM_DETECTIONS];
+        float[][] outputScores = new float[1][NUM_DETECTIONS];
+        float[] numDetections = new float[1];
 
-            if (sortedLabels.size() > RESULTS_TO_SHOW) {
-                sortedLabels.poll();
+        Object[] inputArray = {imgData};
+        Map<Integer, Object> outputMap = new HashMap<>();
+        outputMap.put(0, outputLocations);
+        outputMap.put(1, outputClasses);
+        outputMap.put(2, outputScores);
+        outputMap.put(3, numDetections);
+
+                tflite.runForMultipleInputsOutputs(inputArray, outputMap);
+
+        String label = "";
+        float score = 0;
+
+        int index = 0;
+        float max = 0;
+
+        for (int i = 0; i < NUM_DETECTIONS; i++) {
+            if (outputScores[0][i] > max) {
+                max = outputScores[0][i];
+                index = i;
             }
         }
 
-        final int size = sortedLabels.size();
+        label = labelList.get((int) outputClasses[0][index] + 1);
+        score = outputScores[0][index];
 
-        for (int i = 0; i < size; i++) {
-            Map.Entry<String, Float> label = sortedLabels.poll();
-            topLabels[i] = label.getKey();
-            topConfidence[i] = String.format("%.0f%%", label.getValue() * 100);
-        }
+        final RectF rect = new RectF(
+                outputLocations[0][index][1] * DIM_IMG_SIZE_X,
+                outputLocations[0][index][0] * DIM_IMG_SIZE_X,
+                outputLocations[0][index][3] * DIM_IMG_SIZE_X,
+                outputLocations[0][index][2] * DIM_IMG_SIZE_X
+                );
 
-        return new Pair<>(topLabels[2], topConfidence[2]);
+
+        return new Result(label, score, rect);
     }
 
     private Bitmap getResizedBitmap(Bitmap bitmap, int newWidth, int newHeight) {
@@ -125,9 +118,13 @@ public class Classificator {
             for (int j = 0; j < DIM_IMG_SIZE_Y; j++) {
                 final int val = intValues[pixel++];
 
-                imgData.putFloat((((val >> 16) & 0xFF) - IMAGE_MEAN) / IMAGE_STD);
-                imgData.putFloat((((val >> 8) & 0xFF) - IMAGE_MEAN) / IMAGE_STD);
-                imgData.putFloat((((val) & 0xFF) - IMAGE_MEAN) / IMAGE_STD);
+                try {
+                    imgData.put((byte) ((val >> 16) & 0xFF));
+                    imgData.put((byte) ((val >> 8) & 0xFF));
+                    imgData.put((byte) (val & 0xFF));
+                } catch (BufferOverflowException ex) {
+                    ex.printStackTrace();
+                }
             }
         }
     }

@@ -27,12 +27,5 @@
             android:textSize="26dp"
             android:textColor="@android:color/holo_red_dark"
             android:text="TextView" />
-
-        <Button
-            android:id="@+id/button_capture"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_gravity="bottom"
-            android:text="Capture" />
     </FrameLayout>
 </RelativeLayout>
